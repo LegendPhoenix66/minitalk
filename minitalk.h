@@ -5,4 +5,9 @@
 #include <unistd.h>
 #include <signal.h>
 
+struct s_connection {
+	int sender_pid;
+	int received_bits[8];
+};
+
 #endif //MINITALK_H
