@@ -1,113 +1,124 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   server.c                                           :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: lhopp <lhopp@student.42.fr>                +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/05/22 11:29:25 by lhopp             #+#    #+#             */
+/*   Updated: 2024/05/22 11:53:40 by lhopp            ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "minitalk.h"
 
-struct s_connection g_connection;
+struct s_connection	g_connection;
 
-void handle_sigusr1(int sig, siginfo_t *info, void *ucontext)
+void	handle_sigusr1(int sig, siginfo_t *info, void *ucontext)
 {
+	int	i;
+
 	sig = sig;
 	ucontext = ucontext;
-	if (g_connection.sender_pid == 0) {
+	if (g_connection.sender_pid == 0)
+	{
 		g_connection.sender_pid = info->si_pid;
-	} else if (g_connection.sender_pid != info->si_pid) {
-		return;
 	}
-
-	int i = 0;
-	while (i < 8) {
-		if (g_connection.received_bits[i] == -1) {
+	else if (g_connection.sender_pid != info->si_pid)
+	{
+		return ;
+	}
+	i = 0;
+	while (i < 8)
+	{
+		if (g_connection.received_bits[i] == -1)
+		{
 			g_connection.received_bits[i] = 0;
-			break;
+			break ;
 		}
 		++i;
 	}
 }
 
-void handle_sigusr2(int sig, siginfo_t *info, void *ucontext)
+void	handle_sigusr2(int sig, siginfo_t *info, void *ucontext)
 {
+	int	i;
+
 	sig = sig;
 	ucontext = ucontext;
-
-	if (g_connection.sender_pid == 0) {
+	if (g_connection.sender_pid == 0)
+	{
 		g_connection.sender_pid = info->si_pid;
-	} else if (g_connection.sender_pid != info->si_pid) {
-		return;
 	}
-
-	int i = 0;
-	while (i < 8) {
-		if (g_connection.received_bits[i] == -1) {
+	else if (g_connection.sender_pid != info->si_pid)
+	{
+		return ;
+	}
+	i = 0;
+	while (i < 8)
+	{
+		if (g_connection.received_bits[i] == -1)
+		{
 			g_connection.received_bits[i] = 1;
-			break;
+			break ;
 		}
 		++i;
 	}
 }
 
-void clear_received_bits()
+void	clear_received_bits(void)
 {
-	int i = 0;
-	while (i < 8) {
+	int	i;
+
+	i = 0;
+	while (i < 8)
+	{
 		g_connection.received_bits[i] = -1;
 		++i;
 	}
 }
 
-int check_flag()
+void	wait_for_signal(void)
 {
-	int i = 0;
-	while (i < 7) {
-		if (g_connection.received_bits[i] != 0) {
-			return 0;
-		}
-		++i;
-	}
-	if (g_connection.received_bits[i] != 1) {
-		return 0;
-	}
-	return 1;
-}
+	char	c;
+	int		i;
 
-int main()
-{
-	struct sigaction sa;
-
-	// Register the signal handlers
-	sa.sa_sigaction = handle_sigusr1;
-	sa.sa_flags = SA_SIGINFO;
-	sigaction(SIGUSR1, &sa, NULL);
-
-	sa.sa_sigaction = handle_sigusr2;
-	sigaction(SIGUSR2, &sa, NULL);
-
-	g_connection.sender_pid = 0;
-	clear_received_bits();
-
-	ft_printf("PID: %d\n", getpid());
-	int count = 0;
-	while (1) {
-		while (count < 8) {
+	while (1)
+	{
+		while (g_connection.received_bits[7] == -1)
 			pause();
-			++count;
+		c = 0;
+		i = 0;
+		while (i < 8)
+		{
+			c |= g_connection.received_bits[i] << (7 - i);
+			++i;
 		}
-		count = 0;
-		if (check_flag()) {
+		if (c == '\x01')
+		{
 			kill(g_connection.sender_pid, SIGUSR1);
 			clear_received_bits();
 			g_connection.sender_pid = 0;
 			ft_printf("\n");
-			continue;
-		}
-		char c = 0;
-		int i = 0;
-		while (i < 8) {
-			if (g_connection.received_bits[i] == -1) {
-				ft_printf("Error: missing bit: %d\n", i);
-			}
-			c |= g_connection.received_bits[i] << (7 - i);
-			++i;
+			continue ;
 		}
 		ft_printf("%c", c);
 		clear_received_bits();
 	}
-	return 0;
+}
+
+int	main(void)
+{
+	struct sigaction	sa;
+
+	sa.sa_sigaction = handle_sigusr1;
+	sa.sa_flags = SA_SIGINFO;
+	sigaction(SIGUSR1, &sa, NULL);
+	sa.sa_sigaction = handle_sigusr2;
+	sigaction(SIGUSR2, &sa, NULL);
+	g_connection.sender_pid = 0;
+	clear_received_bits();
+	ft_printf("PID: %d\n", getpid());
+	wait_for_signal();
+	return (0);
 }
